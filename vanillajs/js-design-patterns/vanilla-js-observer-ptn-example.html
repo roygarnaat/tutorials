@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CW::Stopwatch example built with vannila JS</title>
+    <script>
+
+        // - - Classes
+
+        /**
+         * (closure) Dispatcher
+         */
+        var Dispatcher = (function(){
+            // Array to store all event/handlers
+            var _listeners = [];
+
+            //
+            return {
+                /**
+                 * Register an event-type with a handler-function
+                 */
+                addListener:function(type, handler){
+                    //Register the handler function for the event type
+                    _listeners.push({type:type, handler:handler});
+
+                    console.log("Added listener for event type:" + type);
+                },
+
+                /**
+                 * De-register an event-type/handler-function combination
+                 */
+                removeListener:function(type, handler){
+                    //Iterate over all that was registerred (start with the latest index so we won't mess up when deleting one)
+                    for(var i=_listeners.length-1; i>=0; i--){
+
+                        //If the event type + handler function match
+                        if(type === _listeners[i].type && handler === _listeners[i].handler){
+                            console.log("Removing listener for event type:" + type);
+
+                            //De-register by removing it from the _listeners array
+                            _listeners.splice(i, 1);
+
+                            //Stop the loop since we found the type/handler combination and removed it from the array. (should never happen twice (anti - pattern))
+                            break;
+                        }
+                    }
+                },
+
+                /**
+                 * Breadcast an event
+                 */
+                dispatch:function(type, data){
+                    console.log("Dispatching event type:" + type);
+                    
+                    //For all registerred events/handlers
+                    for(var l in _listeners){
+
+                        //If the event type matches with what we want to dispatch
+                        if(type === _listeners[l].type){
+                            
+                            console.log("Found handler function to call for event-type: " + type , _listeners[l].handler);
+
+                            // Execute the handler function
+                            _listeners[l].handler(data);
+                        }
+                    }   
+                }
+            };
+        });
+
+         /* 
+        
+        // - - This is some code to test the Dispatcher
+
+        var handlerForEvent1 = function(data){
+            console.log("handlerForEvent 1 was called with data: ", data);
+        }
+        
+        var handlerForEvent2 = function(data){
+            console.log("handlerForEvent 2 was called with data: ", data);
+        }
+
+        var myDispatcher = new Dispatcher();
+        myDispatcher.addListener('EVENT_1', handlerForEvent1);
+        //myDispatcher.addListener('EVENT_1', handlerForEvent1); //< - - already registerred. So this is an anti-pattern
+        myDispatcher.addListener('EVENT_2', handlerForEvent2);
+        //
+        myDispatcher.dispatch('EVENT_1', {data:'hello world'});
+        myDispatcher.dispatch('EVENT_2', {data:'hello mars'});
+        //
+        myDispatcher.removeListener('EVENT_1', handlerForEvent1);
+        myDispatcher.removeListener('EVENT_2', handlerForEvent2);
+        */
+
+
+        /**
+         * (closure) Stopwatch
+         */
+        var Stopwatch = function(counterElement){
+
+            var _dispatcher = new Dispatcher(); // Dispatcher aggregate
+            var _intervalId = null;
+            var _currentSecond = 0;
+            
+            return {
+                // Aggregate method decorations
+                addListener:_dispatcher.addListener,
+                removeListener:_dispatcher.removeListener,
+                //
+                start:function(){
+                    // Check if the stopwatch is not running
+                    if(_intervalId !== null){
+                        console.log('Stopwatch is already running');
+                        return;
+                    }
+
+                    //
+                    _dispatcher.dispatch('COUNTER_STARTED', _currentSecond);
+
+                    //Create interval
+                    _intervalId = setInterval(function(){
+                        console.log(_currentSecond);
+                        _currentSecond++;
+                        _dispatcher.dispatch('COUNTER_TICKED', _currentSecond);
+                    }.bind(this), 1000);
+                    
+                },
+                //
+                stop:function(){
+                    _dispatcher.dispatch('COUNTER_STOPPED', _currentSecond);
+                    clearInterval(_intervalId);
+                    //
+                    _intervalId = null;
+                },
+                //
+                resume:function(){
+                    _dispatcher.dispatch('COUNTER_RESUMED', _currentSecond);
+                    this.start();
+                },
+                //
+                reset:function(){
+                    _currentSecond = 0;
+                    _dispatcher.dispatch('COUNTER_RESETTED', _currentSecond);
+                }
+            }
+        }
+
+
+        // - - Application code
+
+        var myStopwatch = new Stopwatch(); // instantiate stopwatch
+
+        // Function to execute when DOM is ready
+        function initStopwatchApplication(){
+            
+            counterDisplayEl = document.getElementById('counterDisplay');
+
+            //
+            myStopwatch.addListener('COUNTER_TICKED', function(second){
+                console.log('The current second of myStopwatch is: ', second);
+                counterDisplayEl.innerHTML = String(second);
+            });
+            myStopwatch.addListener('COUNTER_STOPPED', function(second){
+                console.log('The stopwatch was stopped: ', second);
+                counterDisplayEl.innerHTML = String(second);
+            });
+            myStopwatch.addListener('COUNTER_RESUMED', function(second){
+                console.log('The stopwatch was resumed: ', second);
+                counterDisplayEl.innerHTML = String(second);
+            });
+            myStopwatch.addListener('COUNTER_RESETTED', function(second){
+                console.log('The stopwatch has reset: ', second);
+                counterDisplayEl.innerHTML = String(second);
+            });
+        }
+
+        // - -  
+
+    </script>
+</head>
+<body onload="initStopwatchApplication()">
+    <div>
+        Current second: <div id="counterDisplay">0</div>
+    </div>
+    <div>
+        <button onClick="myStopwatch.start()">Start</button>
+        <button onClick="myStopwatch.stop()">Stop</button>
+        <button onClick="myStopwatch.resume()">Resume</button>
+        <button onClick="myStopwatch.reset()">Reset</button>
+    </div>
+</body>
+</html>
